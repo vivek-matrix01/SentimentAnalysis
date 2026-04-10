@@ -1,0 +1,10 @@
+pandas
+numpy
+gunicorn
+nltk
+transformers
+torch
+scipy
+flask
+tqdm
+flask-cors
