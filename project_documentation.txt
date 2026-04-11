@@ -1,0 +1,1170 @@
+================================================================================
+         SENTIMENTANALYSIS PROJECT  —  COMPLETE TECHNICAL DOCUMENTATION
+================================================================================
+
+  Version    : 0.1.0
+  Date       : April 2026
+  Platform   : Windows (cross-platform capable)
+  Author     : Project Owner
+  Repository : d:\Dictionary Application\Project
+
+================================================================================
+
+
+TABLE OF CONTENTS
+-----------------
+
+  1.   Project Overview
+  2.   High-Level Architecture
+  3.   Technology Stack
+  4.   Project Directory Structure
+  5.   Backend — Deep Dive
+         5.1   Entry Point              (app.py)
+         5.2   Model Layer              (model/sentiment.py)
+         5.3   Utility Script           (main.py)
+         5.4   API Endpoints Reference
+         5.5   Python Dependency Management
+  6.   Frontend — Deep Dive
+         6.1   Application Entry Points
+         6.2   Core React Component     (App.js)
+         6.3   State Management
+         6.4   User Interface Sections
+         6.5   Data Flow               (Frontend <-> Backend)
+         6.6   Styling System           (index.css)
+         6.7   Design Tokens & Theme
+         6.8   Animations
+         6.9   Frontend Dependency Management
+  7.   Data Model & Payload Schemas
+  8.   Sentiment Analysis Engines
+         8.1   VADER
+         8.2   RoBERTa (Transformer Model)
+         8.3   Comparison of Both Engines
+  9.   How to Run the Project
+         9.1   Backend Setup
+         9.2   Frontend Setup
+         9.3   Full Stack Run
+  10.  Request-Response Lifecycle (End-to-End)
+  11.  Design Philosophy & UI/UX Decisions
+  12.  Known Limitations
+  13.  Potential Improvements & Roadmap
+  14.  Glossary
+
+
+================================================================================
+1.  PROJECT OVERVIEW
+================================================================================
+
+  Project Name  : SentimentAnalysis
+
+  Description   : A full-stack web application that performs Natural Language
+                  Processing (NLP) based sentiment analysis on textual data.
+                  The application supports two modes of operation:
+
+                    a) Single Text Analysis
+                       A user types or pastes any piece of text (e.g., a product
+                       review, tweet, or comment) and the system instantly returns
+                       the emotional polarity classified as Positive, Neutral, or
+                       Negative.
+
+                    b) Batch CSV Analysis
+                       A user uploads a CSV file containing multiple rows of text
+                       data. The system processes each row through the AI model
+                       and returns a full analytics dashboard with charts and a
+                       detailed data table.
+
+  Core Purpose  : To provide an accessible, web-based interface for running
+                  state-of-the-art AI sentiment models without any need for the
+                  end user to know programming or machine learning.
+
+  Primary Users : Data analysts, product teams, researchers, or any individual
+                  who wants to understand the emotional tone behind text data.
+
+  Naming Note   : The repository folder is named "Dictionary Application" but
+                  the actual project name is "SentimentAnalysis". The folder
+                  name appears to be a legacy or placeholder naming artifact.
+
+
+================================================================================
+2.  HIGH-LEVEL ARCHITECTURE
+================================================================================
+
+  The project follows a classic client-server (two-tier) architecture with a
+  clear separation of concerns between the frontend and backend layers.
+
+  ┌──────────────────────────────────────────────────────────┐
+  │                      USER'S BROWSER                      │
+  │                                                          │
+  │   React SPA  (Single Page Application)                   │
+  │   ┌────────────────────────────────────────────────┐     │
+  │   │  Single Text Input   |   CSV File Upload       │     │
+  │   │  Results Display     |   Dashboard & Charts    │     │
+  │   └─────────────────────┬──────────────────────────┘     │
+  └─────────────────────────┼────────────────────────────────┘
+                            │  HTTP  (REST API calls)
+                            │  POST /predict  ->  JSON body
+                            │  POST /upload   ->  multipart/form-data
+                            v
+  ┌──────────────────────────────────────────────────────────┐
+  │                  PYTHON FLASK BACKEND                    │
+  │                  http://localhost:5000                   │
+  │                                                          │
+  │   app.py  (Flask Web Server + Route Definitions)         │
+  │       |                                                  │
+  │       └──>  model/sentiment.py  (AI Analysis Engine)    │
+  │                   |                                      │
+  │                   |──>  VADER   (Rule-based NLP)         │
+  │                   └──>  RoBERTa (Deep Learning Model)    │
+  └──────────────────────────────────────────────────────────┘
+
+  Communication : The frontend talks to the backend exclusively over HTTP using
+                  the browser Fetch API. There is no WebSocket, no shared
+                  database, and no server-side rendering. Both sides run as
+                  independent processes on the same machine (localhost).
+
+  CORS          : Cross-Origin Resource Sharing is enabled on the backend using
+                  flask-cors so the browser (port 3000) can safely call the
+                  server (port 5000) without being blocked by browser policy.
+
+
+================================================================================
+3.  TECHNOLOGY STACK
+================================================================================
+
+  ── BACKEND ────────────────────────────────────────────────────────────────────
+
+  Language          : Python 3.14
+
+  Web Framework     : Flask 3.1.3
+                        - Lightweight WSGI micro-framework
+                        - Defines HTTP routes and serves JSON responses
+
+  CORS Handling     : flask-cors 6.0.2
+                        - Adds CORS headers so the browser can call Flask freely
+
+  Production Server : Gunicorn 25.3.0
+                        - WSGI HTTP server used when deploying Flask in production
+                        - Not used in dev mode (Flask's built-in server is used)
+
+  Data Handling     : Pandas 3.0.2
+                        - Reads uploaded CSV files into DataFrames
+                        - Iterates over rows for batch processing
+
+  Numerical Compute : NumPy 2.4.4
+                        - Underlying array math used by ML libraries
+
+  NLP / Sentiment   :
+    NLTK 3.9.4          - Natural Language Toolkit; hosts the VADER lexicon
+    Transformers 5.5.3  - Hugging Face library; loads the RoBERTa model
+    Torch 2.11.0        - PyTorch; deep learning inference engine for RoBERTa
+    SciPy 1.17.1        - Scientific computing; used for softmax normalization
+
+  Progress Display  : tqdm 4.67.3
+                        - CLI progress bars (mostly a transitive dependency)
+
+  Visualization     : Matplotlib 3.10.8, Seaborn 0.13.2
+                        - Charting libraries installed but currently unused
+                        - Likely included for potential future analysis scripts
+
+  Env Manager       : uv  (replaces pip/venv)
+                        - Ultra-fast, Rust-based Python package manager
+                        - Manages the .venv virtual environment
+
+  Virtual Env       : .venv  (stored inside backend/)
+  Lock File         : uv.lock  (exact pinned versions of ALL transitive deps)
+  Config File       : pyproject.toml  (PEP 517/518 standard project definition)
+
+
+  ── FRONTEND ───────────────────────────────────────────────────────────────────
+
+  Language          : JavaScript (ES6+)
+
+  UI Framework      : React 19.2.5
+                        - Component-based UI library by Meta/Facebook
+                        - Uses React Hooks (useState) for all state management
+                        - Bootstrapped with Create React App (CRA)
+
+  Charting Library  : Recharts 3.8.1
+                        - Built on top of D3.js
+                        - Renders the sentiment distribution bar chart
+
+  Styling           : Vanilla CSS  (no Tailwind, no Bootstrap)
+                        - Full custom design system written from scratch
+                        - Uses CSS Custom Properties (variables) for theming
+
+  Fonts             : Google Fonts  —  "Outfit" (primary), "Pretendard" (imported)
+
+  Build Tool        : react-scripts 5.0.1  (CRA internal toolchain)
+                        - Wraps Webpack, Babel, and ESLint under the hood
+
+  Testing           : @testing-library/react + Jest  (CRA standard setup)
+
+  Performance       : web-vitals 2.1.4
+                        - Measures Core Web Vitals (CLS, FID, FCP, LCP, TTFB)
+
+  Package Manager   : npm
+
+
+================================================================================
+4.  PROJECT DIRECTORY STRUCTURE
+================================================================================
+
+  Project/
+  |
+  |-- README.md                     Root readme (minimal, just the project name)
+  |
+  |-- backend/                      Python Flask Backend
+  |   |-- .python-version           Specifies Python 3.14 for the uv tool
+  |   |-- pyproject.toml            Project metadata and dependency list (PEP 517)
+  |   |-- req.txt                   Alternate plain-text dependency list
+  |   |-- setup.sh                  One-command first-time setup script
+  |   |-- uv.lock                   Full lockfile with all pinned transitive deps
+  |   |-- app.py                    Flask app — all routes defined here
+  |   |-- main.py                   Standalone script placeholder (no Flask)
+  |   |-- .venv/                    Isolated virtual environment (auto-created)
+  |   └-- model/
+  |       |-- sentiment.py          Core AI analysis logic (VADER + RoBERTa)
+  |       └-- __pycache__/          Python bytecode cache (auto-generated)
+  |
+  └-- frontend/                     React Single Page Application
+      |-- package.json              Frontend dependency list + npm scripts
+      |-- package-lock.json         Exact lockfile for all npm packages
+      |-- .gitignore                Files excluded from version control
+      |-- README.md                 Minimal readme
+      |-- node_modules/             All installed npm packages (auto-created)
+      |-- public/
+      |   |-- index.html            HTML shell — React mounts into #root div
+      |   |-- manifest.json         PWA manifest (app name, icons)
+      |   |-- robots.txt            Search engine crawl instructions
+      |   |-- favicon.ico           Browser tab icon
+      |   |-- logo192.png           App icon (192 x 192)
+      |   └-- logo512.png           App icon (512 x 512)
+      └-- src/
+          |-- index.js              React DOM bootstrap — mounts <App/>
+          |-- index.css             Global styles, design system, animations
+          |-- App.js                Main React component (all UI logic lives here)
+          |-- App.test.js           Basic render smoke test
+          |-- reportWebVitals.js    Performance metrics reporting utility
+          └-- setupTests.js         Jest test environment configuration
+
+
+================================================================================
+5.  BACKEND — DEEP DIVE
+================================================================================
+
+
+── 5.1   ENTRY POINT:  app.py ─────────────────────────────────────────────────
+
+  File Path : backend/app.py
+  Lines     : 69
+  Role      : The Flask web server. Defines all HTTP routes and connects the
+              web layer to the ML model layer.
+
+  Imports:
+    flask           ->  Flask, request, jsonify
+    flask_cors      ->  CORS
+    model.sentiment ->  analyze()  (the public AI function)
+    pandas          ->  pd.read_csv()  (imported lazily inside /upload only)
+
+  App Initialization:
+    app = Flask(__name__)   # Creates the Flask application instance
+    CORS(app)               # Applies permissive CORS to ALL routes
+
+  Routes:
+    See Section 5.4 for the full API reference.
+
+  Dev Server Start:
+    if __name__ == "__main__":
+        app.run(debug=True)
+
+    Runs at http://127.0.0.1:5000 by default.
+    debug=True enables auto-reload on file changes and the Werkzeug debugger.
+
+
+── 5.2   MODEL LAYER:  model/sentiment.py ─────────────────────────────────────
+
+  File Path : backend/model/sentiment.py
+  Lines     : 37
+  Role      : The AI engine. Loads two sentiment models at module startup and
+              exposes one public function:  analyze(text) -> dict
+
+  Module-Level Initialization  (runs once on import):
+  ─────────────────────────────────────────────────────
+
+    VADER:
+      sia = SentimentIntensityAnalyzer()
+      Loads the VADER lexicon from the NLTK data directory.
+      Very fast — initializes in milliseconds.
+
+    RoBERTa:
+      MODEL     = "cardiffnlp/twitter-roberta-base-sentiment"
+      tokenizer = AutoTokenizer.from_pretrained(MODEL)
+      model     = AutoModelForSequenceClassification.from_pretrained(MODEL)
+
+      - Downloads model weights from Hugging Face Hub on first run (~500 MB).
+        Cached locally in ~/.cache/huggingface/ on all subsequent runs.
+      - RoBERTa-base fine-tuned on ~58 million tweets for 3-class sentiment.
+      - Initialization runs once at server startup, keeping per-request
+        inference fast (no model reload per request).
+
+  Functions:
+  ──────────
+
+    vader_sentiment(text: str) -> dict
+      Uses NLTK's SentimentIntensityAnalyzer.
+      Returns: { "neg": float, "neu": float, "pos": float, "compound": float }
+      The "compound" score is a normalized weighted composite in [-1.0, +1.0].
+
+    roberta_sentiment(text: str) -> dict
+      Step 1: Tokenizes text using AutoTokenizer (BPE encoding).
+              Produces input_ids and attention_mask as PyTorch tensors.
+      Step 2: Passes tensors through the RoBERTa model (forward pass).
+      Step 3: Extracts raw logits from model output.
+      Step 4: Calls .detach().numpy() to convert tensor to a NumPy array.
+      Step 5: Applies softmax to produce a probability distribution (0.0–1.0).
+      Returns: { "roberta_neg": float, "roberta_neu": float, "roberta_pos": float }
+      All three values always sum to exactly 1.0.
+
+    analyze(text: str) -> dict   [THE PUBLIC API]
+      Orchestrates both models and merges their outputs.
+      Returns: {
+        "vader":   { "neg": f, "neu": f, "pos": f, "compound": f },
+        "roberta": { "roberta_neg": f, "roberta_neu": f, "roberta_pos": f }
+      }
+
+
+── 5.3   UTILITY SCRIPT:  main.py ─────────────────────────────────────────────
+
+  File Path : backend/main.py
+  Lines     : 7
+  Role      : A minimal placeholder script. Prints "Hello from project!" when
+              run directly. Not connected to Flask or any ML logic. Likely
+              auto-generated by the uv project scaffold as a default entry
+              point and has not been developed further.
+
+
+── 5.4   API ENDPOINTS REFERENCE ──────────────────────────────────────────────
+
+  BASE URL:  http://localhost:5000
+
+  ┌───────────────────────────────────────────────────────────────────────────┐
+  │  GET  /                                                                   │
+  │  Health check / root                                                      │
+  │                                                                           │
+  │  Response: "Backend is running"  (plain text, HTTP 200 OK)                │
+  └───────────────────────────────────────────────────────────────────────────┘
+
+  ┌───────────────────────────────────────────────────────────────────────────┐
+  │  POST  /predict                                                           │
+  │  Single text sentiment analysis                                           │
+  │                                                                           │
+  │  Request Headers:                                                         │
+  │    Content-Type: application/json                                         │
+  │                                                                           │
+  │  Request Body (JSON):                                                     │
+  │    { "text": "Your text string here" }                                    │
+  │                                                                           │
+  │  Success Response (JSON):                                                 │
+  │    {                                                                      │
+  │      "vader": {                                                           │
+  │        "neg":      0.0,                                                   │
+  │        "neu":      0.736,                                                 │
+  │        "pos":      0.264,                                                 │
+  │        "compound": 0.5719                                                 │
+  │      },                                                                   │
+  │      "roberta": {                                                         │
+  │        "roberta_neg": 0.032,                                              │
+  │        "roberta_neu": 0.141,                                              │
+  │        "roberta_pos": 0.827                                               │
+  │      }                                                                    │
+  │    }                                                                      │
+  │                                                                           │
+  │  Notes:                                                                   │
+  │    - Missing "text" key defaults to empty string ""                       │
+  │    - No validation on empty strings (model will still run)                │
+  └───────────────────────────────────────────────────────────────────────────┘
+
+  ┌───────────────────────────────────────────────────────────────────────────┐
+  │  POST  /upload                                                            │
+  │  Batch CSV sentiment analysis                                             │
+  │                                                                           │
+  │  Request Headers:                                                         │
+  │    Content-Type: multipart/form-data                                      │
+  │                                                                           │
+  │  Request Body:                                                            │
+  │    Form field "file" containing a .csv file                               │
+  │                                                                           │
+  │  CSV Requirements:                                                        │
+  │    - Must contain a column named exactly: "Text"  (capital T)             │
+  │    - Optionally may contain a column:     "Score"                         │
+  │    - Only the first 50 rows are processed (hardcoded limit)               │
+  │                                                                           │
+  │  Success Response (JSON):                                                 │
+  │    {                                                                      │
+  │      "total_rows": 50,                                                    │
+  │      "results": [                                                         │
+  │        {                                                                  │
+  │          "text":     "First 100 chars of the review text...",             │
+  │          "score":    5,                                                   │
+  │          "positive": 0.91,                                                │
+  │          "neutral":  0.07,                                                │
+  │          "negative": 0.02                                                 │
+  │        },                                                                 │
+  │        ...                                                                │
+  │      ]                                                                    │
+  │    }                                                                      │
+  │                                                                           │
+  │  Error Responses:                                                         │
+  │    400  { "error": "No file uploaded" }                                   │
+  │    400  { "error": "Invalid CSV" }                                        │
+  │    400  { "error": "CSV must contain 'Text' column" }                     │
+  │                                                                           │
+  │  Per-Row Error (inside results array):                                    │
+  │    { "text": "...", "error": "exception message" }                        │
+  └───────────────────────────────────────────────────────────────────────────┘
+
+
+── 5.5   PYTHON DEPENDENCY MANAGEMENT ─────────────────────────────────────────
+
+  Tool:  uv  (https://github.com/astral-sh/uv)
+    A modern, Rust-based Python package manager significantly faster than pip.
+    Manages virtual environments, resolves dependencies, and generates lockfiles.
+
+  pyproject.toml:
+    The authoritative dependency specification. Lists direct dependencies with
+    minimum version constraints (>=). Requires Python >= 3.14.
+
+  req.txt:
+    A simplified list of the same dependencies without version pins.
+    Used by setup.sh:  uv add -r req.txt
+    Functionally equivalent to a traditional requirements.txt file.
+
+  uv.lock:
+    Auto-generated by uv. Contains exact versions of ALL packages including
+    transitive/indirect dependencies. Ensures reproducible installs across
+    machines. Should be committed to version control.
+
+  .venv/:
+    The virtual environment created by uv inside the backend folder.
+    All Python dependencies are installed here, isolated from system Python.
+
+  setup.sh  (first-time setup — two commands):
+    1.  uv add -r req.txt
+        Installs all packages into .venv.
+    2.  python -m nltk.downloader punkt vader_lexicon
+                averaged_perceptron_tagger maxent_ne_chunker words
+        Downloads required NLTK corpora and models to disk.
+
+
+================================================================================
+6.  FRONTEND — DEEP DIVE
+================================================================================
+
+
+── 6.1   APPLICATION ENTRY POINTS ─────────────────────────────────────────────
+
+  public/index.html:
+    The single HTML file that shells the entire application.
+    Contains only a  <div id="root"></div>  placeholder.
+    React injects all rendered HTML into this div at runtime.
+    Includes: viewport meta tag, favicon link, manifest link, page title.
+
+  src/index.js:
+    The JavaScript boot file — the first file Webpack executes.
+    Actions performed:
+      1.  Imports React and ReactDOM
+      2.  Imports global styles from index.css
+      3.  Imports the root App component
+      4.  Creates a React root attached to document's #root element
+      5.  Renders <App /> inside <React.StrictMode>  (dev checks enabled)
+      6.  Calls reportWebVitals()  (silent by default, no output configured)
+
+  src/reportWebVitals.js:
+    Performance monitoring utility. Dynamically imports the web-vitals library
+    and measures: CLS, FID, FCP, LCP, TTFB. Currently invoked without a
+    callback, so metrics are measured but not reported anywhere.
+
+
+── 6.2   CORE REACT COMPONENT:  App.js ────────────────────────────────────────
+
+  File Path : frontend/src/App.js
+  Lines     : 273
+  Role      : The single monolithic React component that contains the entire
+              application UI and all business logic.
+
+  The entire application is one functional component: function App().
+  There are no separate component files, no routing library, and no Redux.
+
+  Imports:
+    React, { useState }   ->  React core and the state hook
+    recharts components   ->  BarChart, Bar, XAxis, YAxis, Tooltip,
+                              ResponsiveContainer, Cell
+
+  Helper Component — CustomTooltip({ active, payload, label }):
+    A small presentational component rendered when hovering over a chart bar.
+    Returns a styled <div> showing the sentiment label and its count value.
+    Returns null when the tooltip is not in an active (hover) state.
+
+
+── 6.3   STATE MANAGEMENT ─────────────────────────────────────────────────────
+
+  All state is local inside the App() component using React's useState hook.
+  There is no global state manager (no Redux, no Zustand, no Context API).
+
+  ┌─────────────────┬────────────┬────────────────────────────────────────────┐
+  │  Variable       │  Type      │  Description                               │
+  ├─────────────────┼────────────┼────────────────────────────────────────────┤
+  │  text           │  string    │  Current value typed in the textarea       │
+  │  result         │  object    │  Single-text API response from /predict    │
+  │  isAnalyzing    │  boolean   │  True while awaiting /predict response     │
+  │  file           │  File obj  │  Currently selected CSV file object        │
+  │  uploadStatus   │  string    │  Status message from the /upload operation │
+  │  isUploading    │  boolean   │  True while awaiting /upload response      │
+  │  batchData      │  array     │  Array of result objects from /upload      │
+  └─────────────────┴────────────┴────────────────────────────────────────────┘
+
+
+── 6.4   USER INTERFACE SECTIONS ──────────────────────────────────────────────
+
+  The App renders three main visual sections:
+
+  SECTION A — Header
+    Always visible at the top of the page.
+    Contains the "AI Sentiment Analyzer" title with a gradient text fill.
+    Subtitle: "Uncover the emotions behind your data instantly".
+    Animates in with a fadeInUp effect on page load.
+
+  SECTION B — Two-Column Panel Grid
+    Automatically collapses to a single column on small/narrow screens.
+
+    Panel 1 — Single Text Analysis:
+      - Chat-bubble SVG icon in the panel title
+      - Textarea for free-form text input
+      - "Analyze Sentiment" button (disabled when textarea is empty or loading)
+        Shows "Analyzing..." text while the request is in flight
+      - Results block appears on success, showing three decimal values:
+          Positive: [value]
+          Neutral:  [value]
+          Negative: [value]
+        (RoBERTa scores formatted to 3 decimal places)
+
+    Panel 2 — Batch CSV Analysis:
+      - File icon SVG in the panel title
+      - Custom-styled file input (native input hidden with opacity:0, overlaid
+        with a styled display div — standard technique for cross-browser styling)
+      - "Select File" button that shows the filename after selection
+      - "Process CSV" button (disabled if no file is selected or during upload)
+        Shows "Uploading..." while in flight
+      - Upload status message in green (success) or red (failure)
+
+  SECTION C — Batch Dashboard
+    Only rendered when batchData.length > 0 (after a successful CSV upload).
+    Sub-components inside this section:
+
+      1. Stat Grid
+         Four summary cards:  Total Reviews  |  Positive  |  Neutral  |  Negative
+         Each count is determined by finding which sentiment score is highest
+         for each row (dominant class wins).
+
+      2. Bar Chart
+         Recharts BarChart showing sentiment distribution across 3 categories.
+         Color coding:
+           Positive  ->  #10b981  (green)
+           Neutral   ->  #f59e0b  (amber)
+           Negative  ->  #ef4444  (red)
+
+      3. Detailed Records Table
+         Full data table with columns:
+           Text  |  Score Group  |  Positive  |  Neutral  |  Negative
+         Score Group shows a pill badge colored by dominant sentiment.
+         Rows highlight on hover.
+
+
+── 6.5   DATA FLOW  (Frontend <-> Backend) ────────────────────────────────────
+
+  Single Text Flow:
+    1.  User types in textarea  ->  text state updates on every keystroke
+    2.  User clicks "Analyze Sentiment"
+    3.  isAnalyzing -> true
+    4.  fetch("http://localhost:5000/predict", { method: "POST", body: JSON })
+    5.  Awaits response
+    6.  setResult(data)  ->  triggers re-render
+    7.  isAnalyzing -> false
+    8.  Results block appears below the textarea
+
+  Batch CSV Flow:
+    1.  User selects a .csv file  ->  file state is set
+    2.  User clicks "Process CSV"
+    3.  isUploading -> true
+    4.  FormData object created, file appended
+    5.  fetch("http://localhost:5000/upload", { method: "POST", body: formData })
+    6.  Awaits response
+    7.  setBatchData(data.results)  ->  triggers re-render
+    8.  setUploadStatus("Upload successful")
+    9.  isUploading -> false
+    10. Dashboard section becomes visible
+
+
+── 6.6   STYLING SYSTEM:  index.css ───────────────────────────────────────────
+
+  File Path : frontend/src/index.css
+  Lines     : 377
+  Role      : The full visual design system of the application.
+              Pure vanilla CSS — no preprocessors (no SASS, no LESS).
+
+  Structure of the file (in order):
+     1.  Google Fonts import         (Pretendard, Outfit)
+     2.  :root                       CSS Custom Properties (design tokens)
+     3.  body                        Global layout, background, font setup
+     4.  *                           box-sizing: border-box reset
+     5.  h1–h6                       Typography defaults
+     6.  Keyframe animations         fadeInUp, fadeIn
+     7.  Animation utility classes   .animate-fade-in-up, .animate-fade-in
+     8.  Delay utilities             .delay-100, .delay-200, .delay-300
+     9.  Layout                      .app-container, .header
+    10.  Glass Panel                 .glass-panel
+    11.  Forms                       textarea, .input-group
+    12.  Buttons                     .btn, :hover, :active, :disabled states
+    13.  File Input                  .file-upload-wrapper, .file-name
+    14.  Results                     .results-container, .upload-status
+    15.  Stat Cards                  .stat-grid, .stat-card, .stat-value
+    16.  Value Colors                .val-positive, .val-neutral, .val-negative
+    17.  Dashboard                   .dashboard-grid, .chart-container
+    18.  Chart Overrides             recharts tooltip styling
+    19.  Data Table                  .table-container, table, th, td, tr
+    20.  Score Badges                .score-badge, .score-positive, etc.
+
+
+── 6.7   DESIGN TOKENS & THEME ────────────────────────────────────────────────
+
+  All colors are stored as CSS Custom Properties on :root. Global theme
+  changes require editing only this one block in index.css.
+
+  ┌────────────────────┬──────────────────────────┬────────────────────────────┐
+  │  Token             │  Value                   │  Usage                     │
+  ├────────────────────┼──────────────────────────┼────────────────────────────┤
+  │  --bg-color        │  #f8fafc                 │  Page background           │
+  │  --panel-bg        │  rgba(255,255,255, 0.7)  │  Glass panel fill          │
+  │  --panel-border    │  rgba(255,255,255, 0.8)  │  Panel border color        │
+  │  --text-main       │  #1e293b                 │  Primary dark text         │
+  │  --text-muted      │  #64748b                 │  Secondary / subdued text  │
+  │  --accent-color    │  #3b82f6                 │  Buttons, icons, links     │
+  │  --accent-hover    │  #2563eb                 │  Darker blue on hover      │
+  │  --accent-glow     │  rgba(59,130,246, 0.3)   │  Button shadow glow        │
+  │  --success         │  #059669                 │  Positive / success green  │
+  │  --warning         │  #d97706                 │  Neutral amber             │
+  │  --danger          │  #dc2626                 │  Negative / error red      │
+  └────────────────────┴──────────────────────────┴────────────────────────────┘
+
+
+── 6.8   ANIMATIONS ───────────────────────────────────────────────────────────
+
+  The UI uses two CSS keyframe animations:
+
+  fadeInUp:
+    Elements slide upward while fading in  (Y: 20px -> 0, opacity: 0 -> 1).
+    Duration: 0.6s   Easing: cubic-bezier(0.16, 1, 0.3, 1)  (springy feel).
+    Applied via class: .animate-fade-in-up
+
+  fadeIn:
+    Elements fade in without movement  (opacity: 0 -> 1).
+    Duration: 0.8s   Easing: ease-out.
+    Applied via class: .animate-fade-in
+
+  Delay Utility Classes:
+    .delay-100  ->  100 ms delay
+    .delay-200  ->  200 ms delay
+    .delay-300  ->  300 ms delay
+
+  Stagger Usage in the UI:
+    Header        ->  animate-fade-in-up               (no delay)
+    Panel 1       ->  animate-fade-in-up  +  delay-100
+    Panel 2       ->  animate-fade-in-up  +  delay-200
+    Dashboard     ->  animate-fade-in-up  +  delay-300
+    Results block ->  animate-fade-in                  (appears on result)
+
+  Micro-Interactions:
+    - Buttons lift 2px on hover  (transform: translateY(-2px))
+    - Buttons return to baseline on :active
+    - Glass panels gain a deeper shadow on hover
+    - Stat cards lift 4px on hover and become fully opaque
+    - Table rows highlight on hover
+    - Textarea glows blue (accent glow) on focus
+
+
+── 6.9   FRONTEND DEPENDENCY MANAGEMENT ───────────────────────────────────────
+
+  Tool:  npm  (Node Package Manager)
+
+  package.json:
+    Lists direct dependencies with ^ version ranges (compatible upgrades).
+
+  package-lock.json:
+    Exact locked versions of every package and sub-package.
+    Guarantees reproducible installs across machines and CI environments.
+
+  node_modules/:
+    All installed packages. Auto-generated, not committed to git.
+
+  npm Scripts:
+    npm start        ->  Development server at localhost:3000 with HMR
+    npm run build    ->  Optimized production bundle written to /build
+    npm test         ->  Runs Jest unit tests in interactive watch mode
+    npm run eject    ->  Permanently exposes Webpack/Babel config (irreversible)
+
+
+================================================================================
+7.  DATA MODEL & PAYLOAD SCHEMAS
+================================================================================
+
+  ANALYZE RESULT OBJECT  (response from /predict):
+  ─────────────────────────────────────────────────
+  {
+    "vader": {
+      "neg":       float,    // Negative score        (0.0 to 1.0)
+      "neu":       float,    // Neutral score         (0.0 to 1.0)
+      "pos":       float,    // Positive score        (0.0 to 1.0)
+      "compound":  float     // Composite score       (-1.0 to +1.0)
+    },
+    "roberta": {
+      "roberta_neg": float,  // Negative probability  (sums to 1.0 with others)
+      "roberta_neu": float,  // Neutral probability
+      "roberta_pos": float   // Positive probability
+    }
+  }
+
+  Note: The frontend ONLY displays the "roberta" portion of this response.
+        The "vader" key is returned by the backend but is currently unused in
+        the UI — it is available for future use.
+
+  ─────────────────────────────────────────────────
+
+  BATCH RESULT ITEM  (per row from /upload -> results array):
+  ───────────────────────────────────────────────────────────
+  {
+    "text":     string,    // First 100 characters of the "Text" column value
+    "score":    any,       // Raw value from "Score" column, or null if absent
+    "positive": float,     // roberta_pos value
+    "neutral":  float,     // roberta_neu value
+    "negative": float      // roberta_neg value
+  }
+
+  On per-row processing error:
+  {
+    "text":  string,
+    "error": string        // Python exception message for that row
+  }
+
+  ─────────────────────────────────────────────────
+
+  BATCH UPLOAD RESPONSE  (top-level response from /upload):
+  ──────────────────────────────────────────────────────────
+  {
+    "total_rows": int,     // Number of rows actually processed (max 50)
+    "results":    array    // Array of BATCH RESULT ITEM objects
+  }
+
+
+================================================================================
+8.  SENTIMENT ANALYSIS ENGINES
+================================================================================
+
+
+── 8.1   VADER  (Valence Aware Dictionary and sEntiment Reasoner) ──────────────
+
+  Source    : NLTK library  (nltk.sentiment.SentimentIntensityAnalyzer)
+  Type      : Rule-based / Lexicon-based — NOT machine learning
+  Dataset   : Hand-curated dictionary of ~7,500 lexical features with
+              associated sentiment valence scores
+  Speed     : Extremely fast — milliseconds per text, no GPU required
+  Best For  : Social media text, short sentences, informal language
+
+  How It Works:
+    - Each word in the text is looked up in the VADER lexicon
+    - Words are scored for positive or negative sentiment intensity
+    - Additional heuristics adjust scores for:
+        Capitalization   (e.g., "GREAT" scores higher than "great")
+        Punctuation      (e.g., "!!!" amplifies score intensity)
+        Negation         (e.g., "not great" inverts the word's score)
+        Booster words    (e.g., "very", "extremely" amplify the next word)
+    - A compound score [-1, 1] is computed as a normalized weighted composite
+    - neg + neu + pos always sum to 1.0
+
+  Output Example for "This product is amazing!":
+    { "neg": 0.0, "neu": 0.412, "pos": 0.588, "compound": 0.6249 }
+
+
+── 8.2   RoBERTa  (twitter-roberta-base-sentiment) ────────────────────────────
+
+  Source    : Hugging Face Transformers
+              Model ID: "cardiffnlp/twitter-roberta-base-sentiment"
+  Type      : Deep Learning — Transformer-based language model
+  Base      : RoBERTa-base (125M parameters), fine-tuned on ~58M tweets
+  Provider  : Cardiff NLP  (Cardiff University, UK)
+  Labels    : 3 classes — Negative (0), Neutral (1), Positive (2)
+  Speed     : Slower than VADER — typically 0.5 to 2 seconds per text on CPU
+  Best For  : Context-aware understanding, nuanced language, sarcasm detection
+
+  How It Works:
+
+    Step 1 — Tokenization:
+      Text is tokenized using Byte-Pair Encoding (BPE).
+      Special [CLS] and [SEP] tokens are added automatically.
+      Output: input_ids and attention_mask as PyTorch tensors.
+
+    Step 2 — Forward Pass:
+      Tensors pass through 12 transformer layers.
+      Each layer applies self-attention across all token pairs simultaneously.
+      The [CLS] token's final output represents the whole sentence's meaning.
+
+    Step 3 — Classification Head:
+      A linear layer maps the [CLS] vector to 3 raw logit scores.
+
+    Step 4 — Softmax:
+      scipy.special.softmax converts logits to a probability distribution.
+      Ensures all three output values sum to exactly 1.0.
+
+  Output Example for "This product is amazing!":
+    { "roberta_neg": 0.021, "roberta_neu": 0.056, "roberta_pos": 0.923 }
+
+  Note: The model runs in inference mode. torch.no_grad() is not explicitly
+        called, but .detach() is used before .numpy() to disconnect the tensor
+        from the computation graph, which is functionally equivalent.
+
+
+── 8.3   COMPARISON OF BOTH ENGINES ───────────────────────────────────────────
+
+  ┌─────────────────────┬──────────────────────────┬──────────────────────────┐
+  │  Feature            │  VADER                   │  RoBERTa                 │
+  ├─────────────────────┼──────────────────────────┼──────────────────────────┤
+  │  Method             │  Rule-based lexicon       │  Deep neural network     │
+  │  Training data      │  Hand-crafted dictionary  │  58 million tweets       │
+  │  Context awareness  │  Limited  (word-level)    │  High  (full sentence)   │
+  │  Speed              │  < 1 ms                  │  0.5 – 2 s  (on CPU)    │
+  │  GPU required       │  No                      │  No  (faster with GPU)   │
+  │  Model size         │  Tiny  (~100 KB)          │  Large  (~500 MB)        │
+  │  Best for           │  Informal, social text    │  All text, nuanced lang  │
+  │  Handles sarcasm    │  Poorly                  │  Better  (not perfect)   │
+  │  Compound score     │  Yes  (range -1 to +1)   │  No  (probabilities only)│
+  │  Zero-shot ability  │  Yes  (any text domain)   │  Tuned for tweet style   │
+  └─────────────────────┴──────────────────────────┴──────────────────────────┘
+
+  Current Behavior:
+    Both models run on every request, for both /predict and /upload endpoints.
+    Only RoBERTa results are shown in the frontend UI.
+    VADER results are returned in the API payload but currently unused in UI.
+
+
+================================================================================
+9.  HOW TO RUN THE PROJECT
+================================================================================
+
+  Prerequisites:
+    - Python 3.14 installed and accessible on PATH
+    - uv installed          (pip install uv)
+    - Node.js 18+ and npm installed
+    - Internet connection   (first run downloads ~500 MB of model weights)
+
+
+── 9.1   BACKEND SETUP ────────────────────────────────────────────────────────
+
+  Step 1 — Navigate to the backend directory:
+    cd "d:\Dictionary Application\Project\backend"
+
+  Step 2 — First-time setup (run once):
+    bash setup.sh
+    On Windows PowerShell, run the two commands manually:
+      uv add -r req.txt
+      python -m nltk.downloader punkt vader_lexicon
+                                 averaged_perceptron_tagger
+                                 maxent_ne_chunker words
+
+  Step 3 — Start the Flask server:
+    uv run python app.py
+    OR
+    .venv\Scripts\python.exe app.py
+
+    Server starts at: http://127.0.0.1:5000
+    NOTE: First startup downloads ~500 MB of RoBERTa weights (one-time only).
+
+
+── 9.2   FRONTEND SETUP ───────────────────────────────────────────────────────
+
+  Step 1 — Navigate to the frontend directory:
+    cd "d:\Dictionary Application\Project\frontend"
+
+  Step 2 — Install dependencies (run once):
+    npm install
+
+  Step 3 — Start the development server:
+    npm start
+
+    App opens at: http://localhost:3000
+    Hot Module Replacement is active — file saves reload the browser instantly.
+
+
+── 9.3   FULL STACK RUN ───────────────────────────────────────────────────────
+
+  Run both servers simultaneously in two separate terminal windows:
+
+  Terminal 1  (Backend):
+    cd "d:\Dictionary Application\Project\backend"
+    uv run python app.py
+
+  Terminal 2  (Frontend):
+    cd "d:\Dictionary Application\Project\frontend"
+    npm start
+
+  Then open a browser and go to:  http://localhost:3000
+
+
+================================================================================
+10.  REQUEST-RESPONSE LIFECYCLE  (End-to-End)
+================================================================================
+
+  Example: User types "This is a great product!" and clicks Analyze.
+
+  Step 1  — User Input
+    React detects onChange on the textarea.
+    setText("This is a great product!") is called.
+    The button becomes enabled because text is not empty.
+
+  Step 2  — Button Click
+    analyze() function is invoked.
+    isAnalyzing -> true  (button shows "Analyzing..." and is disabled).
+
+  Step 3  — HTTP Request Sent
+    Browser sends:  POST  http://localhost:5000/predict
+    Headers:  { Content-Type: application/json }
+    Body:     { "text": "This is a great product!" }
+
+  Step 4  — Flask Receives Request
+    The /predict route handler fires.
+    data = request.json.get("text", "")  extracts the text string.
+    analyze(data) is called from model/sentiment.py.
+
+  Step 5  — VADER Analysis Runs
+    sia.polarity_scores("This is a great product!") executes.
+    Returns: { neg: 0.0, neu: 0.423, pos: 0.577, compound: 0.6588 }
+
+  Step 6  — RoBERTa Analysis Runs
+    Tokenizer converts the text to input tensors.
+    Model performs a forward pass through 12 transformer layers.
+    Logits are extracted and softmax is applied.
+    Returns: { roberta_neg: 0.02, roberta_neu: 0.08, roberta_pos: 0.90 }
+
+  Step 7  — Flask Sends Response
+    Both results are merged into one dict and returned as JSON.
+    HTTP 200 OK response is sent back to the browser.
+
+  Step 8  — Frontend Processes Response
+    The fetch() promise resolves with the response data.
+    setResult(data) updates component state and triggers re-render.
+    isAnalyzing -> false.
+    React re-renders and the results block appears with the three values.
+
+  Total Round-Trip Time:
+    Typically 0.5 to 3 seconds on CPU, dominated by RoBERTa inference.
+
+
+================================================================================
+11.  DESIGN PHILOSOPHY & UI/UX DECISIONS
+================================================================================
+
+  1.  GLASSMORPHISM
+      Panels use semi-transparent white backgrounds with backdrop-filter: blur().
+      This creates a frosted glass effect over the gradient background.
+      A popular 2024-era design trend used in SaaS and AI-powered web tools.
+
+  2.  GRADIENT AESTHETICS
+      The page background uses two radial gradients (blue and purple) to create
+      a soft ambient glow. The header title uses a CSS linear gradient as a
+      text fill via -webkit-background-clip. These choices align the UI
+      visually with modern AI product design language.
+
+  3.  PROGRESSIVE DISCLOSURE
+      The dashboard section is hidden until batchData.length > 0.
+      This keeps the interface minimal and focused, revealing complexity
+      only after user action produces meaningful data.
+
+  4.  STAGGERED ANIMATIONS
+      Each section animates in with an increasing delay (0ms, 100ms, 200ms,
+      300ms), creating a natural sequential reveal that guides the user's
+      attention down the page in a controlled, comfortable way.
+
+  5.  SEMANTIC COLOR CODING
+      Green = Positive, Amber = Neutral, Red = Negative is applied consistently
+      across stat cards, chart bars, data table values, and score badges.
+      Users can understand results at a glance without reading every label.
+
+  6.  CUSTOM FILE INPUT
+      The native browser <input type="file"> element is hidden with opacity:0
+      and overlaid with a custom-styled display div. This is the standard
+      technique for achieving a consistent cross-browser look while keeping
+      the native file dialog behavior intact.
+
+  7.  RESPONSIVE GRID
+      The two-panel layout uses CSS Grid with auto-fit and minmax(300px, 1fr).
+      This causes panels to flow naturally from two columns to one column
+      on narrower screens, with no breakpoint media queries needed.
+
+  8.  DUAL MODEL ARCHITECTURE
+      Returning both VADER and RoBERTa results from every API call keeps the
+      backend flexible. Future UI features like model comparison, discrepancy
+      highlighting, or ensemble scoring can be added without any backend changes.
+
+
+================================================================================
+12.  KNOWN LIMITATIONS
+================================================================================
+
+  1.  NO AUTHENTICATION
+      The API has no auth layer. Anyone on the same network with access to
+      port 5000 can call all endpoints without restriction.
+
+  2.  HARDCODED ROW LIMIT
+      The /upload endpoint silently caps processing at 50 rows via df.head(50).
+      Larger datasets are truncated with no warning displayed to the user.
+
+  3.  TEXT LENGTH NOT VALIDATED
+      RoBERTa has a maximum token limit of 512 tokens. Texts longer than
+      approximately 400 words will be silently truncated by the tokenizer,
+      which may reduce accuracy without any indication to the user.
+
+  4.  NO READINESS ENDPOINT
+      When Flask starts, loading RoBERTa takes 10–30 seconds (cold start).
+      Requests that arrive during this window may time out or return errors.
+      There is no /health or /ready endpoint to check server readiness.
+
+  5.  VADER OUTPUT NOT DISPLAYED
+      VADER results are computed and returned by the API on every request but
+      are not rendered anywhere in the frontend. Half the model's work is
+      discarded after each call.
+
+  6.  FRONTEND ERROR HANDLING IS SILENT
+      Network errors and HTTP failures are only logged to the browser console
+      via console.error(). No visible error message is shown to the user when
+      the backend is unavailable for single-text analysis.
+
+  7.  NO DATA PERSISTENCE
+      Results live only in React component state. Refreshing the page wipes
+      everything. There is no database, localStorage, or session storage.
+
+  8.  CPU-ONLY INFERENCE
+      The code does not move the model or tensors to CUDA. All inference runs
+      on CPU, which is significantly slower than GPU-accelerated environments.
+
+  9.  CORS IS FULLY OPEN
+      CORS(app) with no restrictions is appropriate for local development but
+      would be a security concern in any production deployment.
+
+  10. MISLEADING FOLDER NAME
+      The project lives inside a folder named "Dictionary Application" even
+      though there is no dictionary functionality. This may cause confusion
+      when navigating the filesystem.
+
+
+================================================================================
+13.  POTENTIAL IMPROVEMENTS & ROADMAP
+================================================================================
+
+  SHORT TERM  —  Low effort, high impact
+  ────────────────────────────────────────
+  > Show VADER results alongside RoBERTa in the frontend results section
+  > Display a visible error message when the backend is unreachable
+  > Update the page <title> in index.html to "AI Sentiment Analyzer"
+  > Warn the user when their uploaded CSV exceeds the 50-row processing limit
+  > Warn the user when their input text approaches the 512-token limit
+  > Add a "Clear" / "Reset" button to reset the analysis panel
+
+
+  MEDIUM TERM  —  Moderate effort
+  ─────────────────────────────────
+  > Add a GET /health endpoint for server readiness checks
+  > Add input validation (min/max text length, max file size)
+  > Add a loading skeleton UI while the dashboard is rendering
+  > Add result exportability — download results as CSV or PDF
+  > Add a dark mode toggle using CSS custom properties
+  > Add pagination to the batch results table for large datasets
+  > Add GPU support with torch.device("cuda") if torch.cuda.is_available()
+
+
+  LONG TERM  —  Significant effort
+  ──────────────────────────────────
+  > Add user authentication (JWT or OAuth2)
+  > Add a PostgreSQL database to persist historical analysis results
+  > Add a history/logs view per user session
+  > Add multilingual support (use multilingual sentiment transformer models)
+  > Add an ensemble score display combining VADER and RoBERTa outputs
+  > Add explanation layer — highlight which words most influenced the score
+    (using SHAP values or attention weight visualization)
+  > Add REST API versioning  (/api/v1/predict)
+  > Containerize the application with Docker for consistent deployment
+  > Set up a CI/CD pipeline with GitHub Actions
+  > Deploy backend to a cloud platform  (Google Cloud Run, AWS Lambda, etc.)
+  > Deploy frontend to a CDN  (Firebase Hosting, Netlify, or Vercel)
+
+
+================================================================================
+14.  GLOSSARY
+================================================================================
+
+  API           Application Programming Interface — a contract defining how
+                software components communicate (here, via HTTP endpoints).
+
+  CORS          Cross-Origin Resource Sharing — a browser security policy that
+                restricts web pages from calling a different domain unless the
+                server explicitly allows it via response headers.
+
+  CSP           Content Security Policy — an additional browser-level security
+                layer. Not implemented in this project.
+
+  CSV           Comma-Separated Values — a plain-text tabular data format where
+                columns are separated by commas and rows by newlines.
+
+  HMR           Hot Module Replacement — a development feature where saved code
+                changes are pushed to the browser without a full page refresh.
+
+  Hugging Face  A company and open-source platform hosting thousands of
+                pre-trained AI models, datasets, and interactive demos.
+
+  Logits        Raw, un-normalized output scores from a neural network's final
+                linear layer, before any activation function is applied.
+
+  NLP           Natural Language Processing — the field of AI focused on
+                teaching machines to understand and generate human language.
+
+  RoBERTa       Robustly Optimized BERT Pretraining Approach — a transformer
+                language model by Facebook AI Research, an improved version
+                of Google's BERT.
+
+  SPA           Single Page Application — a web app that loads one HTML shell
+                and dynamically updates its content via JavaScript.
+
+  Softmax       A mathematical function that converts a vector of real numbers
+                (logits) into a probability distribution that sums to 1.0.
+
+  Tokenizer     Breaks input text into smaller units (tokens) for model input.
+                RoBERTa uses Byte-Pair Encoding (BPE) as its tokenization method.
+
+  Transformer   A deep learning architecture that uses self-attention to model
+                the relationship between every word in a sentence simultaneously.
+
+  VADER         Valence Aware Dictionary and sEntiment Reasoner — a rule-based
+                NLP tool for sentiment analysis, included in the NLTK library.
+
+  WSGI          Web Server Gateway Interface — the standard Python protocol
+                connecting web servers (Gunicorn) to web apps (Flask).
+
+  uv            A Rust-based Python package manager by Astral that replaces
+                pip and venv. Extremely fast dependency resolution.
+
+  Virtual Env   An isolated Python environment (.venv) containing only the
+                packages needed for this project, separate from system Python.
+
+  Web Vitals    A set of user experience metrics defined by Google:
+                LCP (load speed), FID (interactivity), CLS (visual stability).
+
+
+================================================================================
+                            END OF DOCUMENTATION
+================================================================================
